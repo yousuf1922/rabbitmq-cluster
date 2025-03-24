@@ -1,0 +1,25 @@
+vservices:
+    rabbitmq-3:
+        image: rabbitmq:3-management
+        container_name: rabbitmq-3
+        hostname: rabbitmq-3 # Explicit hostname
+        environment:
+            RABBITMQ_NODENAME: "rabbit@rabbitmq-3"
+            RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+            RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+            RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE}
+        networks:
+            - rabbitmq_network # Use the external network
+        # No port exposure (NGINX handles external traffic)
+        healthcheck:
+            test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+
+# No network/volume definitions here (managed externally)
+
+networks:
+    rabbitmq_network:
+        name: rabbitmq_network
+        external: true # Tell Docker this network exists externally

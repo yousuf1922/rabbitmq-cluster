@@ -1,0 +1,21 @@
+services:
+    nginx:
+        image: nginx:latest
+        container_name: nginx
+        ports:
+            - "80:80"
+            - "5672:5672" # Expose AMQP via NGINX
+            - "15672:15672" # Expose Management UI via NGINX
+        volumes:
+            - /mnt/d/OCodes/rabbitmq-cluster/nginx.conf:/etc/nginx/nginx.conf # Mount custom Nginx config if use WSL Docker
+        networks:
+            - rabbitmq_network # Same network as RabbitMQ
+        depends_on:
+            - rabbitmq-1
+            - rabbitmq-2
+            - rabbitmq-3
+
+networks:
+    rabbitmq_network:
+        name: rabbitmq_network
+        external: true # Tell Docker this network exists externally
