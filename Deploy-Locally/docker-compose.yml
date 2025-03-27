@@ -1,0 +1,116 @@
+version: "3.9"
+
+services:
+    rabbitmq-1:
+        image: rabbitmq:3-management
+        container_name: rabbitmq-1
+        hostname: rabbitmq-1
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+            - "4369:4369"
+            - "25672:25672"
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: securepassword
+            RABBITMQ_ERLANG_COOKIE: SECURE_COOKIE
+            RABBITMQ_NODENAME: rabbit@rabbitmq-1
+        volumes:
+            - rabbitmq-1-data:/var/lib/rabbitmq
+            - rabbitmq-1-logs:/var/log/rabbitmq
+            - /mnt/d/OCodes/rabbitmq-cluster/Deploy-Locally/start_and_policy.sh:/start_and_policy.sh
+        networks:
+            - rabbitmq_network
+        command: /start_and_policy.sh
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "ping"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+        restart: unless-stopped
+
+    rabbitmq-2:
+        image: rabbitmq:3-management
+        container_name: rabbitmq-2
+        hostname: rabbitmq-2
+        ports:
+            - "5673:5672"
+            - "15673:15672"
+            - "4370:4369"
+            - "25673:25672"
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: securepassword
+            RABBITMQ_ERLANG_COOKIE: SECURE_COOKIE
+            RABBITMQ_NODENAME: rabbit@rabbitmq-2
+        # Temporarily remove clustering command to test startup
+        # command: >
+        #     bash -c "sleep 60 && echo 'Attempting to join cluster' && rabbitmqctl stop_app && rabbitmqctl join_cluster rabbit@rabbitmq-1 && rabbitmqctl start_app || echo 'Join failed'"
+        volumes:
+            - rabbitmq-2-data:/var/lib/rabbitmq
+            - rabbitmq-2-logs:/var/log/rabbitmq
+            - /mnt/d/OCodes/rabbitmq-cluster/Deploy-Locally/join_cluster.sh:/join_cluster.sh
+        networks:
+            - rabbitmq_network
+        command: /join_cluster.sh
+        healthcheck:
+            test: ["CMD", "rabbitmqctl", "status"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+        restart: unless-stopped
+
+    rabbitmq-3:
+        image: rabbitmq:3-management
+        container_name: rabbitmq-3
+        hostname: rabbitmq-3
+        ports:
+            - "5674:5672"
+            - "15674:15672"
+            - "4371:4369"
+            - "25674:25672"
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: securepassword
+            RABBITMQ_ERLANG_COOKIE: SECURE_COOKIE
+            RABBITMQ_NODENAME: rabbit@rabbitmq-3
+        # Temporarily remove clustering command to test startup
+        # command: >
+        #     bash -c "sleep 60 && echo 'Attempting to join cluster' && rabbitmqctl stop_app && rabbitmqctl join_cluster rabbit@rabbitmq-1 && rabbitmqctl start_app || echo 'Join failed'"
+        volumes:
+            - rabbitmq-3-data:/var/lib/rabbitmq
+            - rabbitmq-3-logs:/var/log/rabbitmq
+            - /mnt/d/OCodes/rabbitmq-cluster/Deploy-Locally/join_cluster.sh:/join_cluster.sh
+        networks:
+            - rabbitmq_network
+        command: /join_cluster.sh
+        healthcheck:
+            test: ["CMD", "rabbitmqctl", "status"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+        restart: unless-stopped
+
+    nginx:
+        image: nginx:latest
+        container_name: nginx
+        ports:
+            - "82:5675" # AMQP
+            - "80:15675" # Management UI
+        volumes:
+            - /mnt/d/OCodes/rabbitmq-cluster/Deploy-Locally/nginx.conf:/etc/nginx/nginx.conf
+        networks:
+            - rabbitmq_network
+        restart: unless-stopped
+
+volumes:
+    rabbitmq-1-data:
+    rabbitmq-1-logs:
+    rabbitmq-2-data:
+    rabbitmq-2-logs:
+    rabbitmq-3-data:
+    rabbitmq-3-logs:
+
+networks:
+    rabbitmq_network:
+        driver: bridge

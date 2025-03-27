@@ -1,0 +1,158 @@
+version: "3.9"
+
+services:
+    rabbitmq-1:
+        image: rabbitmq:3-management
+        container_name: rabbitmq-1
+        hostname: rabbitmq-1
+        #? If you want to test each node individually, you can map the ports to the host machine. Otherwise, you can remove the ports section.
+        ports:
+            - "5672:5672" # AMQP for rabbitmq-1
+            - "15672:15672" # Management UI for rabbitmq-1
+            - "4369:4369" # EPMD for clustering
+            - "25672:25672" # Cluster communication
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: securepassword
+            RABBITMQ_ERLANG_COOKIE: SECURE_COOKIE
+            RABBITMQ_NODENAME: rabbit@rabbitmq-1
+        volumes:
+            - rabbitmq-1-data:/var/lib/rabbitmq
+            - rabbitmq-1-logs:/var/log/rabbitmq
+        networks:
+            - rabbitmq_network
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "ping"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+        restart: unless-stopped
+
+    rabbitmq-2:
+        image: rabbitmq:3-management
+        container_name: rabbitmq-2
+        hostname: rabbitmq-2
+        #? If you want to test each node individually, you can map the ports to the host machine. Otherwise, you can remove the ports section.
+        ports:
+            - "5673:5672" # Unique AMQP port
+            - "15673:15672" # Unique Management UI port
+            - "4370:4369" # Unique EPMD port
+            - "25673:25672" # Unique cluster port
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: securepassword
+            RABBITMQ_ERLANG_COOKIE: SECURE_COOKIE
+            RABBITMQ_NODENAME: rabbit@rabbitmq-2
+        # command: >
+        #     bash -c "sleep 60 && for i in {1..5}; do rabbitmqctl stop_app && rabbitmqctl join_cluster rabbit@rabbitmq-1 && rabbitmqctl start_app && break || sleep 10; done"
+        command: >
+            bash -c "sleep 60 && echo 'Attempting to join cluster' && rabbitmqctl stop_app && rabbitmqctl join_cluster rabbit@rabbitmq-1 && rabbitmqctl start_app || echo 'Join failed'"
+        depends_on:
+            - rabbitmq-1
+        volumes:
+            - rabbitmq-2-data:/var/lib/rabbitmq
+            - rabbitmq-2-logs:/var/log/rabbitmq
+        networks:
+            - rabbitmq_network
+        healthcheck:
+            # test: ["CMD", "rabbitmq-diagnostics", "ping"]
+            test: ["CMD", "rabbitmqctl", "status"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+        restart: unless-stopped
+
+    rabbitmq-3:
+        image: rabbitmq:3-management
+        container_name: rabbitmq-3
+        hostname: rabbitmq-3
+        #? If you want to test each node individually, you can map the ports to the host machine. Otherwise, you can remove the ports section.
+        ports:
+            - "5674:5672" # Unique AMQP port
+            - "15674:15672" # Unique Management UI port
+            - "4371:4369" # Unique EPMD port
+            - "25674:25672" # Unique cluster port
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: securepassword
+            RABBITMQ_ERLANG_COOKIE: SECURE_COOKIE
+            RABBITMQ_NODENAME: rabbit@rabbitmq-3
+        # command: >
+        #     bash -c "sleep 60 && for i in {1..5}; do rabbitmqctl stop_app && rabbitmqctl join_cluster rabbit@rabbitmq-1 && rabbitmqctl start_app && break || sleep 10; done"
+        command: >
+            bash -c "sleep 60 && echo 'Attempting to join cluster' && rabbitmqctl stop_app && rabbitmqctl join_cluster rabbit@rabbitmq-1 && rabbitmqctl start_app || echo 'Join failed'"
+        depends_on:
+            - rabbitmq-1
+        volumes:
+            - rabbitmq-3-data:/var/lib/rabbitmq
+            - rabbitmq-3-logs:/var/log/rabbitmq
+        networks:
+            - rabbitmq_network
+        healthcheck:
+            # test: ["CMD", "rabbitmq-diagnostics", "ping"]
+            test: ["CMD", "rabbitmqctl", "status"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+        restart: unless-stopped
+
+    nginx:
+        image: nginx:latest
+        container_name: nginx
+        ports:
+            - "82:5675" # Load-balanced AMQP
+            - "80:15675" # Load-balanced Management UI
+        volumes:
+            - /mnt/d/OCodes/rabbitmq-cluster/Deploy-Locally/nginx.conf:/etc/nginx/nginx.conf
+        networks:
+            - rabbitmq_network
+        restart: unless-stopped
+
+volumes:
+    rabbitmq-1-data:
+    rabbitmq-1-logs:
+    rabbitmq-2-data:
+    rabbitmq-2-logs:
+    rabbitmq-3-data:
+    rabbitmq-3-logs:
+
+networks:
+    rabbitmq_network:
+        driver: bridge
+
+
+
+
+# bash -c "sleep 60 && rabbitmqctl stop_app && rabbitmqctl join_cluster rabbit@rabbitmq-1 && rabbitmqctl start_app"
+# -------------------------------
+#! Replicate Data Across Nodes:
+# -------------------------------
+
+#! Usages:
+#*  - Execute this command on any node in the cluster (e.g., rabbitmq-1) after the cluster is fully formed
+#*  - COMMAND: rabbitmqctl set_policy ha-all "^" '{"ha-mode":"all","ha-sync-mode":"automatic"}'
+#*  - DOCKER COMMAND: docker exec rabbitmqctl set_policy ha-all "^" '{"ha-mode":"all","ha-sync-mode":"automatic"}'
+
+#! Explanation:
+#*  - ha-all: Name of the policy (can be any string).
+#*  - "^": Regular expression matching all queue names (applies to all queues).
+#*  - {"ha-mode":"all"}: Mirrors queues across all nodes in the cluster.
+#*  - {"ha-sync-mode":"automatic"}: Automatically synchronizes the data across all nodes in the cluster for faster recovery of downed nodes.
+
+#! Check the status of the policy:
+#*  - COMMAND: rabbitmqctl list_policies
+#*  - DOCKER COMMAND: docker exec rabbitmq-1 rabbitmqctl list_policies
+
+#! Remove the policy:
+#*  - COMMAND: rabbitmqctl delete_policy ha-all
+#*  - DOCKER COMMAND: docker exec rabbitmq-1 rabbitmqctl delete_policy ha-all
+
+#! Set the policy on all nodes in the cluster:
+#*  - COMMAND: rabbitmqctl set_policy -p / ha-all "^" '{"ha-mode":"all","ha-sync-mode":"automatic"}'
+#*  - DOCKER COMMAND: docker exec rabbitmq-1 rabbitmqctl set_policy -p / ha-all "^" '{\"ha-mode\":\"all\",\"ha-sync-mode\":\"automatic\"}'
+
+#? This policy ensures that all queues are mirrored across all nodes in the cluster, enabling high availability and fault tolerance in the cluster.
+
+#! Check the status of the cluster:
+#*  - COMMAND: rabbitmqctl cluster_status
+#*  - DOCKER COMMAND: docker exec rabbitmq-1 rabbitmqctl cluster_status
