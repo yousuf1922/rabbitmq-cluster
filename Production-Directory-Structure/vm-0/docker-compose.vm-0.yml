@@ -1,0 +1,21 @@
+version: "3.9"
+services:
+    nginx:
+        image: nginx:latest
+        container_name: nginx
+        ports:
+            - "5672:5672" # Production AMQP
+            - "15672:15672" # Production Management UI
+        volumes:
+            - ./nginx.conf:/etc/nginx/nginx.conf
+        extra_hosts:
+            - "rabbitmq-1:192.168.1.101"
+            - "rabbitmq-2:192.168.1.102"
+            - "rabbitmq-3:192.168.1.103"
+        networks:
+            - nginx_network
+        restart: unless-stopped
+
+networks:
+    nginx_network:
+        driver: bridge

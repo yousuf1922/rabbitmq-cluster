@@ -1,21 +1,21 @@
+version: "3.9"
 services:
     nginx:
         image: nginx:latest
         container_name: nginx
         ports:
-            - "80:80"
-            - "5672:5672" # Expose AMQP via NGINX
-            - "15672:15672" # Expose Management UI via NGINX
+            - "5672:5672" # AMQP load balancing
+            - "15672:15672" # Management UI load balancing
         volumes:
-            - /mnt/d/OCodes/rabbitmq-cluster/nginx.conf:/etc/nginx/nginx.conf # Mount custom Nginx config if use WSL Docker
+            - /mnt/d/OCodes/rabbitmq-cluster/nginx.conf:/etc/nginx/nginx.conf # Mount the NGINX config
+        extra_hosts:
+            - "rabbitmq-1:192.168.1.101" # Map hostnames to VM IPs
+            - "rabbitmq-2:192.168.1.102"
+            - "rabbitmq-3:192.168.1.103"
         networks:
-            - rabbitmq_network # Same network as RabbitMQ
-        depends_on:
-            - rabbitmq-1
-            - rabbitmq-2
-            - rabbitmq-3
+            - nginx-net
+        restart: unless-stopped
 
 networks:
-    rabbitmq_network:
-        name: rabbitmq_network
-        external: true # Tell Docker this network exists externally
+    nginx-net:
+        driver: bridge

@@ -1,0 +1,29 @@
+version: "3.9"
+services:
+    rabbitmq-1:
+        image: rabbitmq:3-management
+        container_name: rabbitmq-1
+        hostname: rabbitmq-1
+        #? Since it is the production node, we will not expose the ports to the host machine. Just NIGIX will be able to access it in the network.
+        # ports:
+        #     - "5672:5672"
+        #     - "15672:15672"
+        #     - "4369:4369"
+        #     - "25672:25672"
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: securepassword
+            RABBITMQ_ERLANG_COOKIE: SECURE_COOKIE
+            RABBITMQ_NODENAME: rabbit@192.168.1.101 # VM-1 IP
+        volumes:
+            - rabbitmq-data:/var/lib/rabbitmq
+        networks:
+            - rabbitmq_network
+        restart: unless-stopped
+
+volumes:
+    rabbitmq-data:
+
+networks:
+    rabbitmq_network:
+        driver: bridge
