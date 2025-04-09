@@ -10,18 +10,9 @@ until rabbitmqctl status > /dev/null 2>&1; do
 done
 echo "rabbitmq-1 has started."
 
-# Wait for all three nodes to join the cluster
-COUNTER=0
-until [ $COUNTER -ge 30 ] || (nodes=$(rabbitmqctl cluster_status | sed -n '/Running Nodes/,/^$/p' | grep "^rabbit@") && \
-      echo "$nodes" | grep -q "rabbit@rabbitmq-1" && \
-      echo "$nodes" | grep -q "rabbit@rabbitmq-2" && \
-      echo "$nodes" | grep -q "rabbit@rabbitmq-3"); do
-  echo "Waiting for rabbitmq-2 and rabbitmq-3 to join... (Attempt $COUNTER)"
-  sleep 10
-  COUNTER=$((COUNTER + 1))
-done
-
-if [ $COUNTER -ge 30 ]; then
+# Wait for all nodes to join using built-in command
+echo "Waiting for 3 nodes to join the cluster..."
+if ! rabbitmqctl await_online_nodes 3 --timeout 300; then
   echo "Timeout: Cluster did not form within 5 minutes."
   exit 1
 fi
